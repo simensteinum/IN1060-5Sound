@@ -11,7 +11,7 @@ CRGB leds[NUM_LEDS];
 const int sampleTime = 50;  //50 mS = 20Hz
 const int micPin = A0;      //Mic pin connected analog output
 unsigned int micSample;
-const int baseline = 45;  //Depends on microphone placement and background noise. Needs to be calibrated to extern decibel meter with every use
+const int baseline = 53;  //Depends on microphone placement and background noise. Needs to be calibrated to extern decibel meter with every use
 
 const long interval = 60000;  //Milliseconds in 1 minute
 int minutes = 0;
@@ -56,12 +56,14 @@ void startTracker() {
   //Do while less than a minute has passed
   while (millis() - lastMinute < interval) {
     unsigned long currentMillis = millis();        //Initialize current time frame
-    unsigned int dB = getDecibels(currentMillis);  //Get decibels for current timeframe
-    if (dB < 100) {                                //Check if peak level (not average) is above dangerous level, as this will cause instant damage
+    int dB = getDecibels(currentMillis);  //Get decibels for current timeframe
+    if (dB > 110) {                                //Imminently dangerous dB level
       redLed();
-      delay(100);
     }
-    addToMinValues(dB);  //Store every dB value in minute values
+    addToMinValues(dB);               //Store every dB value in minute values
+    Serial.print("Desibelnivå på ");  //Print values for researchers (not subjects) to have overview of testing
+    Serial.print(millis() / 1000);    //Print number of seconds passed
+    Serial.print(" sekunder: ");
     Serial.println(dB);
     delay(100);  //Delay for stability
   }
@@ -101,11 +103,11 @@ void startTracker() {
  * blackLed(): Decibel level is unharmful, turn off LED
  */
 void ledMinute(int dB) {
-  if (dB >= 45) {
+  if (dB >= 70) {
     redLed();
-  } else if (dB >= 40 && dB < 45) {
+  } else if (dB >= 65 && dB < 70) {
     orangeLed();
-  } else if (dB >= 35 && dB < 40) {
+  } else if (dB >= 60 && dB < 65) {
     yellowLed();
   } else {
     blackLed();
@@ -113,11 +115,11 @@ void ledMinute(int dB) {
 }
 
 void ledTenMinutes(int dB) {
-  if (dB >= 90) {
+  if (dB >= 60) {
     redLed();
-  } else if (dB >= 85 && dB < 90) {
+  } else if (dB >= 55 && dB < 60) {
     orangeLed();
-  } else if (dB >= 80 && dB < 85) {
+  } else if (dB >= 50 && dB < 55) {
     yellowLed();
   } else {
     blackLed();
@@ -125,11 +127,11 @@ void ledTenMinutes(int dB) {
 }
 
 void ledHour(int dB) {
-  if (dB >= 85) {
+  if (dB >= 45) {
     redLed();
-  } else if (dB >= 80 && dB < 85) {
+  } else if (dB >= 40 && dB < 45) {
     orangeLed();
-  } else if (dB >= 75 && dB < 80) {
+  } else if (dB >= 35 && dB < 40) {
     yellowLed();
   } else {
     blackLed();
@@ -203,9 +205,10 @@ int getDecibels(unsigned long currentMillis) {
 }
 
 /**
- * Convert peak-to-peak amplitude to root mean square voltage (RMS)
- * Use fixed formula 
- * return: root mean square voltage
+ * Measure signal for 50mS
+ * Remove readings above 1024 for correctness
+ * Maximum signal levels minus minimum signal levels equal peak-to-peak amplitude
+ * return: peak-to-peak value
  */
 float peakToRMS(int peak) {
   return peak / (2.0 * sqrt(2.0));
